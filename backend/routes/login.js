@@ -33,6 +33,7 @@ app.post("/", async (req,res) => {
             logged: true,
             data: result,
             role: result.role,
+            id_outlet: result.id_outlet,
             token: token
         })
     }else{

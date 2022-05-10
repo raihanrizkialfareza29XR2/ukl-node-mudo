@@ -3,6 +3,22 @@ const express = require("express")
 const app = express()
 app.use(express.json()) 
 
+const mysql = require('mysql2')
+const db = mysql.createConnection({
+    host: 'localhost',
+    user: 'root',
+    password: '',
+    database: 'node_laundry',
+    multipleStatements: true
+});
+
+db.connect((err) => {
+    if (err) {
+        throw err
+    }
+    console.log('berhasil')
+})
+
 // import md5
 const md5 = require("md5")
 const bodyParser = require('body-parser');
@@ -17,7 +33,9 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: true}));
 
 //import model
-const models = require("../models/index")
+const models = require("../models/index");
+// const { sequelize } = require("../models/index");
+const sequelize = require('sequelize')
 const transaksi = models.transaksi
 const detail_transaksi = models.detail_transaksi
 const paket = models.paket
@@ -52,6 +70,54 @@ app.get("/", auth, (req,res) => {
         .catch(error => {
             res.json(error)
       })
+})
+app.get("/newest", auth, (req,res) => {
+    let sql = `SELECT transaksi.*,member.nama as nama_member , detail_transaksi.*, paket.*, outlet.*, (SELECT SUM(total_harga) FROM detail_transaksi INNER JOIN transaksi ON transaksi.id_transaksi = detail_transaksi.id_transaksi ORDER BY transaksi.id_transaksi DESC LIMIT 10) as total FROM transaksi INNER JOIN member ON member.id_member = transaksi.id_member INNER JOIN detail_transaksi ON detail_transaksi.id_transaksi = transaksi.id_transaksi INNER JOIN paket ON paket.id_paket=detail_transaksi.id_paket INNER JOIN outlet ON outlet.id_outlet=transaksi.id_outlet ORDER BY transaksi.id_transaksi DESC LIMIT 10`;
+    let data = db.query(sql, (err, result) => {
+        if(err) throw err
+        res.json(result)
+    })
+})
+
+app.post('/laporan/general', (req, res) => {
+    let tgl_awal = req.body.tgl_awal
+    let tgl_akhir = req.body.tgl_akhir
+    let sql = `SELECT transaksi.*,member.nama as nama_member , detail_transaksi.*, paket.*, outlet.*, (SELECT SUM(total_harga) FROM detail_transaksi INNER JOIN transaksi ON transaksi.id_transaksi = detail_transaksi.id_transaksi and tgl between '${tgl_awal}' and '${tgl_akhir}') as total FROM transaksi INNER JOIN member ON member.id_member = transaksi.id_member INNER JOIN detail_transaksi ON detail_transaksi.id_transaksi = transaksi.id_transaksi INNER JOIN paket ON paket.id_paket=detail_transaksi.id_paket INNER JOIN outlet ON outlet.id_outlet=transaksi.id_outlet and tgl between '${tgl_awal}' and '${tgl_akhir}'`;
+    let data = db.query(sql, (err, result) => {
+        if(err) throw err
+        res.json(result)
+    })
+})
+app.get('/countoutlet', (req, res) => {
+    let sql = `SELECT COUNT(id_outlet) as 'outlet' FROM outlet`;
+    let data = db.query(sql, (err, result) => {
+        if(err) throw err
+        res.json(result)
+    })
+})
+app.get('/countmember', (req, res) => {
+    let sql = `SELECT COUNT(id_member) as 'member' FROM member`;
+    let data = db.query(sql, (err, result) => {
+        if(err) throw err
+        res.json(result)
+    })
+})
+app.get('/counttransaksi', (req, res) => {
+    let sql = `SELECT COUNT(id_transaksi) as 'jumlah' FROM transaksi`;
+    let data = db.query(sql, (err, result) => {
+        if(err) throw err
+        res.json(result)
+    })
+})
+app.post('/laporan/:id_outlet', (req, res) => {
+    let tgl_awal = req.body.tgl_awal
+    let tgl_akhir = req.body.tgl_akhir
+    let id_outlet = req.params.id_outlet
+    let sql = `SELECT transaksi.*,member.nama as nama_member , detail_transaksi.*, paket.*, outlet.*, (SELECT SUM(total_harga) FROM detail_transaksi INNER JOIN transaksi ON transaksi.id_transaksi = detail_transaksi.id_transaksi and tgl between '${tgl_awal}' and '${tgl_akhir}') as total FROM transaksi INNER JOIN member ON member.id_member = transaksi.id_member INNER JOIN detail_transaksi ON detail_transaksi.id_transaksi = transaksi.id_transaksi INNER JOIN paket ON paket.id_paket=detail_transaksi.id_paket INNER JOIN outlet ON outlet.id_outlet=transaksi.id_outlet and transaksi.id_outlet = ${id_outlet} and tgl between '${tgl_awal}' and '${tgl_akhir}'`;
+    let data = db.query(sql, (err, result) => {
+        if(err) throw err
+        res.json(result)
+    })
 })
 
 //endpoint menampilkan data transaksi dan detail transaksi berdasarkan id, method: GET, function: findOne()
